@@ -39,18 +39,31 @@ class Waypoint_Path(object):
         self.waypoint_publisher = rospy.Publisher(
                 '/carla/tesla/waypoints', Path, queue_size=1, latch=True)    # Waypoint publisher. This Path message displays the route in RVIZ
         
-        if sys.argv[1] == True:     # System argument 1 for random goal location
+        if goal_location == True:     # Random Goal location
             carla_goal = random.choice(self.mp.generate_waypoints(1))   # Choose random waypoint from map as your final destination
         
         else:
-            carla_goal = carla.Transform()
+            carla_goal = carla.Transform()      # Insert the coordinates of your Goal location here
             carla_goal.location.x = -149.02883911
             carla_goal.location.y = -61.167804
             carla_goal.location.z = 16.921186
             carla_goal.rotation.pitch = 0.000000
             carla_goal.rotation.roll = 0.000000
             carla_goal.rotation.yaw = 270
-        
+
+            minimum_dst = 1000      # Assumed Minimum distance
+            for waypoint in self.mp.generate_waypoints(1):  # Iterate through all the waypoints to find the nearest one to the specified location (In case it is incorrect)
+                self.Distance(waypoint, carla_goal)     # Euclidean distance of ith waypoint and inputted location
+                if self.distance < minimum_dst:     # If distance of ith waypoint is less than minimum distance, switch
+                    min_wp = waypoint
+            
+            carla_goal.location.x = min_wp.transform.location.x     # Update coordinates of nearest waypoint
+            carla_goal.location.y = min_wp.transform.location.y
+            carla_goal.location.z = min_wp.transform.location.z
+            carla_goal.rotation.pitch = min_wp.transform.rotation.pitch
+            carla_goal.rotation.roll = min_wp.transform.rotation.roll
+            carla_goal.rotation.yaw = min_wp.transform.rotation.yaw
+
         self.goal = carla_goal
         self.reroute()
         rospy.spin()
@@ -83,7 +96,7 @@ class Waypoint_Path(object):
         grp = GlobalRoutePlanner(dao)
         grp.setup()
         
-        if sys.argv[1] == True:     # System argument 1 for random goal location
+        if goal_location == True:     # System argument 1 for random goal location
             route = grp.trace_route(self.veh_pos.transform.location,\
                     carla.Location(self.goal.transform.location.x,\
                     self.goal.transform.location.y, self.goal.transform.location.z))    # Determines route based on your goal location and the vehicle initial position
@@ -129,7 +142,7 @@ class Waypoint_Path(object):
 
         i = 0
         for k in range(1, len(self.current_route)):     # Iterate through all the waypoints in the route
-            self.Distance(i)
+            self.Distance(self.current_route[i][0], self.veh_pos.transform)
             self.Waypoints()
             rospy.Subscriber('/machine_learning/output', Int16, self.Detection)   # Subscribes to topic for Stop sign detection. Need to run carla_detect_objects.py script to obtain detection
             while self.distance > 0.5:  # Control the vehicle until the distance of the next waypoint and the vehicle is less than 0.5 m
@@ -172,12 +185,12 @@ class Waypoint_Path(object):
                 
                 self.Publisher(msg)
                 rate.sleep()
-                self.Distance(i)    # Calculates the Euclidean distance between the vehicle and the next waypoint in every iteration
+                self.Distance(self.current_route[i][0], self.veh_pos.transform)    # Calculates the Euclidean distance between the vehicle and the next waypoint in every iteration
             i += 1
 
-    def Distance(self, i):  # Calculation of Euclidean distance between the vehicle's position and next waypoint
-        self.distance = math.sqrt(math.pow(self.veh_pos.transform.location.x - self.current_route[i][0].transform.location.x, 2) + \
-                math.pow(self.veh_pos.transform.location.y - self.current_route[i][0].transform.location.y, 2))
+    def Distance(self, desired_pos, current_pos):  # Calculation of Euclidean distance between the vehicle's position and next waypoint
+        self.distance = math.sqrt(math.pow(current_pos.location.x - desired_pos.transform.location.x, 2) + \
+                math.pow(current_pos.location.y - desired_pos.transform.location.y, 2))
 
 
     def Publisher(self, msg):   # Vehicle control publisher
@@ -187,7 +200,16 @@ class Waypoint_Path(object):
      
 
 if __name__ == '__main__':
-    try:    
+    try: 
+        if len(sys.argv) == 2 and int(sys.argv[1]) == 1:  # One input is given and it is 1, get input from system
+                goal_location = bool(sys.argv[1])   # Get input and convert to bool
+        
+        elif len(sys.argv) == 1 or int(sys.argv[1]) == 0:    # Zero is inserted or No input is given. Use specified goal location
+            goal_location = None   
+        
+        else:   # Type Error if any other input is inserted
+            print('Invalid Input: Insert 1 to choose a random goal location or No input (You can also Insert 0) for your specified location')
+            sys.exit()
         Waypoint_Path()
     except KeyboardInterrupt:
         print("Press Crtl-C to terminate while statement")
