@@ -10,3 +10,5 @@ important to mention that the PID values for the longitudinal and lateral contro
 response.
 
 Below is an image of the script working.
+
+![alt text](https://github.com/Johan579/Carla_simulation_waypoint_follower/tree/master/Carla_Images)
