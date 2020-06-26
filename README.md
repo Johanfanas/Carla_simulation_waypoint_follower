@@ -11,4 +11,4 @@ response.
 
 Below is an image of the script working.
 
-![alt text](https://github.com/Johan579/Carla_simulation_waypoint_follower/tree/master/Carla_Images/carla_waypoint_follower.png)
+![alt text](https://github.com/Johan579/Carla_simulation_waypoint_follower/blob/master/Carla_Images/carla_waypoint_follower.png)
